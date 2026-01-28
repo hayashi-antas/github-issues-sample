@@ -6,7 +6,7 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
+  pull-requests: read
   issues: write
 
 jobs:
@@ -15,86 +15,68 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Generate and post AI review comment
+      - name: AI review (OpenAI) and comment back
+        uses: actions/github-script@v7
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          REPO: ${{ github.repository }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
-          MODEL: gpt-4.1
-        run: |
-          node - <<'NODE'
-          const repo = process.env.REPO;
-          const issueNumber = process.env.ISSUE_NUMBER;
-          const ghToken = process.env.GITHUB_TOKEN;
-          const openaiKey = process.env.OPENAI_API_KEY;
-          const model = process.env.MODEL || "gpt-4.1";
+          OPENAI_MODEL: gpt-4.1
+        with:
+          script: |
+            const openaiKey = process.env.OPENAI_API_KEY;
+            const model = process.env.OPENAI_MODEL || "gpt-4.1";
 
-          if (!openaiKey) {
-            console.error("OPENAI_API_KEY is missing (GitHub Secrets)");
-            process.exit(1);
-          }
+            if (!openaiKey) {
+              core.setFailed("Missing OPENAI_API_KEY (GitHub Secrets).");
+              return;
+            }
 
-          async function ghJson(path, opts = {}) {
-            const res = await fetch(`https://api.github.com${path}`, {
-              ...opts,
-              headers: {
-                Authorization: `Bearer ${ghToken}`,
-                Accept: "application/vnd.github+json",
-                ...(opts.headers || {})
-              }
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const issue_number = context.payload.issue.number; // PR番号と同じ
+
+            // PR本体を取得
+            const pr = await github.rest.pulls.get({
+              owner,
+              repo,
+              pull_number: issue_number
             });
-            if (!res.ok) throw new Error(`GitHub API ${res.status}: ${await res.text()}`);
-            return res.json();
-          }
 
-          async function getPR() {
-            // issue_number と PR number は同じ
-            return ghJson(`/repos/${repo}/pulls/${issueNumber}`);
-          }
-
-          async function getDiff() {
-            const res = await fetch(`https://api.github.com/repos/${repo}/pulls/${issueNumber}`, {
-              headers: {
-                Authorization: `Bearer ${ghToken}`,
-                Accept: "application/vnd.github.v3.diff"
-              }
+            // diff を取得（GitHub APIに Accept: diff を指定）
+            const diffRes = await github.request("GET /repos/{owner}/{repo}/pulls/{pull_number}", {
+              owner,
+              repo,
+              pull_number: issue_number,
+              headers: { accept: "application/vnd.github.v3.diff" }
             });
-            if (!res.ok) throw new Error(`GitHub diff ${res.status}: ${await res.text()}`);
-            return res.text();
-          }
+            const diff = String(diffRes.data || "");
 
-          function trimDiff(diff) {
-            const maxChars = 120000;
-            if (diff.length <= maxChars) return diff;
-            return diff.slice(0, maxChars) + "\n\n[TRUNCATED]\n";
-          }
+            const trimDiff = (text, maxChars = 120000) =>
+              text.length > maxChars ? text.slice(0, maxChars) + "\n\n[TRUNCATED]\n" : text;
 
-          async function callOpenAI(pr, diff) {
             const prompt = `
-あなたは熟練したソフトウェアエンジニアです。以下のPull Requestをレビューしてください。
+            あなたは熟練したソフトウェアエンジニアです。以下のPull Requestをレビューしてください。
 
-## PRタイトル
-${pr.title}
+            ## PRタイトル
+            ${pr.data.title}
 
-## PR本文
-${pr.body || "(なし)"}
+            ## PR本文
+            ${pr.data.body || "(なし)"}
 
-## 変更差分（diff）
-${trimDiff(diff)}
+            ## 変更差分（diff）
+            ${trimDiff(diff)}
 
-観点:
-- バグや落とし穴（境界条件、例外、NULL、型、互換性）
-- 保守性・可読性（命名、責務、重複、コメントの必要性）
-- セキュリティ/情報漏えい（ログ、入力検証、権限）
-- テスト観点（追加すべきテスト、確認ポイント）
+            観点:
+            - バグ/落とし穴（境界条件、例外、NULL、互換性）
+            - 保守性/可読性（命名、責務、重複）
+            - セキュリティ（ログ、入力検証、権限、情報漏えい）
+            - テスト観点（追加すべきテスト、確認ポイント）
 
-トーン:
-- 丁寧で建設的
-- 断定しすぎない（推測は推測と書く）
-- 初心者にも学びがある書き方
+            トーン:
+            - 丁寧で建設的
+            - 不確かな点は推測と明記
+            - 初心者にも学びがある書き方
 
-出力はMarkdownで。
+            Markdownで出力してください。
             `.trim();
 
             const res = await fetch("https://api.openai.com/v1/responses", {
@@ -103,37 +85,24 @@ ${trimDiff(diff)}
                 Authorization: `Bearer ${openaiKey}`,
                 "Content-Type": "application/json"
               },
-              body: JSON.stringify({ model, input: prompt })
-            });
-            if (!res.ok) throw new Error(`OpenAI ${res.status}: ${await res.text()}`);
-
-            const data = await res.json();
-            return (data.output_text || "").trim() || "（AIレビュー生成に失敗しました）";
-          }
-
-          async function postComment(body) {
-            const res = await fetch(`https://api.github.com/repos/${repo}/issues/${issueNumber}/comments`, {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${ghToken}`,
-                "Content-Type": "application/json",
-                Accept: "application/vnd.github+json"
-              },
               body: JSON.stringify({
-                body: `### 🤖 AI Review\n\n${body}\n\n---\n_Trigger: /ai-review_`
+                model,
+                input: prompt
               })
             });
-            if (!res.ok) throw new Error(`Comment post ${res.status}: ${await res.text()}`);
-          }
 
-          (async () => {
-            const pr = await getPR();
-            const diff = await getDiff();
-            const review = await callOpenAI(pr, diff);
-            await postComment(review);
-            console.log("AI review posted.");
-          })().catch(err => {
-            console.error(err);
-            process.exit(1);
-          });
-          NODE
+            if (!res.ok) {
+              const text = await res.text();
+              core.setFailed(`OpenAI API error ${res.status}: ${text}`);
+              return;
+            }
+
+            const data = await res.json();
+            const review = (data.output_text || "").trim() || "（AIレビュー生成に失敗しました）";
+
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number,
+              body: `### 🤖 AI Review\n\n${review}\n\n---\n_Trigger: /ai-review_`
+            });
