@@ -10,8 +10,21 @@ permissions:
   issues: write
 
 jobs:
+  debug-context:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print event debug info
+        run: |
+          echo "is_pr: ${{ github.event.issue.pull_request != null }}"
+          echo "comment_body: ${{ toJson(github.event.comment.body) }}"
+          echo "author: ${{ github.event.comment.user.login }}"
+          echo "author_association: ${{ github.event.comment.author_association }}"
+          echo "issue_number: ${{ github.event.issue.number }}"
+          echo "repo: ${{ github.repository }}"
+
   ai-review:
-    if: ${{ github.event.issue.pull_request && contains(github.event.comment.body, '/ai-review') && (github.event.comment.author_association == 'OWNER' || github.event.comment.author_association == 'MEMBER' || github.event.comment.author_association == 'COLLABORATOR') }}
+    needs: debug-context
+    if: ${{ github.event.issue.pull_request != null && contains(github.event.comment.body, '/ai-review') && (github.event.comment.author_association == 'OWNER' || github.event.comment.author_association == 'MEMBER' || github.event.comment.author_association == 'COLLABORATOR') }}
     runs-on: ubuntu-latest
 
     steps:
@@ -33,7 +46,7 @@ jobs:
 
             const owner = context.repo.owner;
             const repo = context.repo.repo;
-            const issue_number = context.payload.issue.number; // PR番号と同じ
+            const issue_number = context.payload.issue.number;
 
             const pr = await github.rest.pulls.get({
               owner,
@@ -53,29 +66,29 @@ jobs:
               text.length > maxChars ? text.slice(0, maxChars) + "\n\n[TRUNCATED]\n" : text;
 
             const prompt = `
-            あなたは熟練したソフトウェアエンジニアです。以下のPull Requestをレビューしてください。
+あなたは熟練したソフトウェアエンジニアです。以下のPull Requestをレビューしてください。
 
-            ## PRタイトル
-            ${pr.data.title}
+## PRタイトル
+${pr.data.title}
 
-            ## PR本文
-            ${pr.data.body || "(なし)"}
+## PR本文
+${pr.data.body || "(なし)"}
 
-            ## 変更差分（diff）
-            ${trimDiff(diff)}
+## 変更差分（diff）
+${trimDiff(diff)}
 
-            観点:
-            - バグ/落とし穴（境界条件、例外、NULL、互換性）
-            - 保守性/可読性（命名、責務、重複）
-            - セキュリティ（ログ、入力検証、権限、情報漏えい）
-            - テスト観点（追加すべきテスト、確認ポイント）
+観点:
+- バグ/落とし穴（境界条件、例外、NULL、互換性）
+- 保守性/可読性（命名、責務、重複）
+- セキュリティ（ログ、入力検証、権限、情報漏えい）
+- テスト観点（追加すべきテスト、確認ポイント）
 
-            トーン:
-            - 丁寧で建設的
-            - 不確かな点は推測と明記
-            - 初心者にも学びがある書き方
+トーン:
+- 丁寧で建設的
+- 不確かな点は推測と明記
+- 初心者にも学びがある書き方
 
-            Markdownで出力してください。
+Markdownで出力してください。
             `.trim();
 
             const res = await fetch("https://api.openai.com/v1/responses", {
@@ -84,10 +97,7 @@ jobs:
                 Authorization: `Bearer ${openaiKey}`,
                 "Content-Type": "application/json"
               },
-              body: JSON.stringify({
-                model,
-                input: prompt
-              })
+              body: JSON.stringify({ model, input: prompt })
             });
 
             if (!res.ok) {
