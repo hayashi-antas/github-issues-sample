@@ -15,103 +15,24 @@ jobs:
     steps:
       - name: Print event debug info
         run: |
-          echo "is_pr: ${{ github.event.issue.pull_request != null }}"
-          echo "comment_body: ${{ toJson(github.event.comment.body) }}"
-          echo "author: ${{ github.event.comment.user.login }}"
-          echo "author_association: ${{ github.event.comment.author_association }}"
-          echo "issue_number: ${{ github.event.issue.number }}"
-          echo "repo: ${{ github.repository }}"
+          echo "is_pr=${{ github.event.issue.pull_request != null }}"
+          echo "author=${{ github.event.comment.user.login }}"
+          echo "author_association=${{ github.event.comment.author_association }}"
+          echo "issue_number=${{ github.event.issue.number }}"
+          echo "body=${{ github.event.comment.body }}"
 
   ai-review:
     needs: debug-context
-    if: ${{ github.event.issue.pull_request != null && contains(github.event.comment.body, '/ai-review') && (github.event.comment.author_association == 'OWNER' || github.event.comment.author_association == 'MEMBER' || github.event.comment.author_association == 'COLLABORATOR') }}
+    if: ${{ github.event.issue.pull_request != null && contains(github.event.comment.body, '/ai-review') }}
     runs-on: ubuntu-latest
-
     steps:
-      - name: AI review (OpenAI) and comment back
-        uses: actions/github-script@v7
+      - uses: actions/checkout@v4
+
+      - name: Run reviewer script
         env:
+          GITHUB_TOKEN: ${{ secrets.AI_REVIEW_PAT }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_MODEL: gpt-4.1
-        with:
-          github-token: ${{ secrets.AI_REVIEW_PAT }}
-          script: |
-            const openaiKey = process.env.OPENAI_API_KEY;
-            const model = process.env.OPENAI_MODEL || "gpt-4.1";
-
-            if (!openaiKey) {
-              core.setFailed("Missing OPENAI_API_KEY (GitHub Secrets).");
-              return;
-            }
-
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-            const issue_number = context.payload.issue.number;
-
-            const pr = await github.rest.pulls.get({
-              owner,
-              repo,
-              pull_number: issue_number
-            });
-
-            const diffRes = await github.request("GET /repos/{owner}/{repo}/pulls/{pull_number}", {
-              owner,
-              repo,
-              pull_number: issue_number,
-              headers: { accept: "application/vnd.github.v3.diff" }
-            });
-            const diff = String(diffRes.data || "");
-
-            const trimDiff = (text, maxChars = 120000) =>
-              text.length > maxChars ? text.slice(0, maxChars) + "\n\n[TRUNCATED]\n" : text;
-
-            const prompt = `
-あなたは熟練したソフトウェアエンジニアです。以下のPull Requestをレビューしてください。
-
-## PRタイトル
-${pr.data.title}
-
-## PR本文
-${pr.data.body || "(なし)"}
-
-## 変更差分（diff）
-${trimDiff(diff)}
-
-観点:
-- バグ/落とし穴（境界条件、例外、NULL、互換性）
-- 保守性/可読性（命名、責務、重複）
-- セキュリティ（ログ、入力検証、権限、情報漏えい）
-- テスト観点（追加すべきテスト、確認ポイント）
-
-トーン:
-- 丁寧で建設的
-- 不確かな点は推測と明記
-- 初心者にも学びがある書き方
-
-Markdownで出力してください。
-            `.trim();
-
-            const res = await fetch("https://api.openai.com/v1/responses", {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${openaiKey}`,
-                "Content-Type": "application/json"
-              },
-              body: JSON.stringify({ model, input: prompt })
-            });
-
-            if (!res.ok) {
-              const text = await res.text();
-              core.setFailed(`OpenAI API error ${res.status}: ${text}`);
-              return;
-            }
-
-            const data = await res.json();
-            const review = (data.output_text || "").trim() || "（AIレビュー生成に失敗しました）";
-
-            await github.rest.issues.createComment({
-              owner,
-              repo,
-              issue_number,
-              body: `### 🤖 AI Review\n\n${review}\n\n---\n_Trigger: /ai-review_`
-            });
+          REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: node .github/scripts/ai_review_comment.js
