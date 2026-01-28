@@ -1,0 +1,28 @@
+name: AI Review on label
+
+on:
+  pull_request:
+    types: [labeled]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  ai-review:
+    if: ${{ github.event.label.name == 'ai-review' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run AI reviewer
+        env:
+          GITHUB_TOKEN: ${{ secrets.AI_REVIEW_PAT }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_MODEL: gpt-4.1
+          REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.pull_request.number }}
+          AUTO_UNLABEL: "1"
+          TRIGGER: "label:ai-review"
+        run: node .github/scripts/ai_review_comment.js
