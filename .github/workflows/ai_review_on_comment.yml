@@ -21,6 +21,7 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_MODEL: gpt-4.1
         with:
+          github-token: ${{ secrets.AI_REVIEW_PAT }}
           script: |
             const openaiKey = process.env.OPENAI_API_KEY;
             const model = process.env.OPENAI_MODEL || "gpt-4.1";
