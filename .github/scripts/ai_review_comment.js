@@ -20,7 +20,10 @@ async function gh(path, opts = {}) {
       ...(opts.headers || {}),
     },
   });
-  if (!res.ok) throw new Error(`GitHub API ${res.status}: ${await res.text()}`);
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`GitHub API ${res.status}: ${text}`);
+  }
   return res;
 }
 
@@ -76,7 +79,10 @@ Markdownで出力してください。
     body: JSON.stringify({ model, input: prompt }),
   });
 
-  if (!res.ok) throw new Error(`OpenAI ${res.status}: ${await res.text()}`);
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`OpenAI ${res.status}: ${text}`);
+  }
 
   const data = await res.json();
   return (data.output_text || "").trim() || "（AIレビュー生成に失敗しました）";
@@ -93,10 +99,17 @@ async function postComment(body) {
 }
 
 (async () => {
+  // ===== デバッグ：このトークンが誰として認証されているか =====
+  const whoRes = await gh(`/user`);
+  const who = await whoRes.json();
+  console.log("Authenticated as:", who);
+  // =======================================================
+
   const pr = await getPR();
   const diff = await getDiff();
   const review = await callOpenAI(pr, diff);
   await postComment(review);
+
   console.log("AI review posted.");
 })().catch((e) => {
   console.error(e);
