@@ -20,10 +20,7 @@ async function gh(path, opts = {}) {
       ...(opts.headers || {}),
     },
   });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`GitHub API ${res.status}: ${text}`);
-  }
+  if (!res.ok) throw new Error(`GitHub API ${res.status}: ${await res.text()}`);
   return res;
 }
 
@@ -41,6 +38,39 @@ async function getDiff() {
 
 function trimDiff(text, maxChars = 120000) {
   return text.length > maxChars ? text.slice(0, maxChars) + "\n\n[TRUNCATED]\n" : text;
+}
+
+// Responses API の生JSONからテキストを抽出（output配列をなめる）
+function extractOutputText(data) {
+  // SDK/一部レスポンスで output_text がある場合は最優先
+  if (typeof data?.output_text === "string" && data.output_text.trim()) {
+    return data.output_text.trim();
+  }
+
+  const out = data?.output;
+  if (!Array.isArray(out)) return "";
+
+  const texts = [];
+
+  for (const item of out) {
+    const content = item?.content;
+    if (!Array.isArray(content)) continue;
+
+    for (const c of content) {
+      // ドキュメント上は output の中に text が入る  [oai_citation:1‡OpenAI Platform](https://platform.openai.com/docs/guides/text?utm_source=chatgpt.com)
+      if (c?.type === "output_text" && typeof c?.text === "string") {
+        texts.push(c.text);
+      } else if (c?.type === "text" && typeof c?.text === "string") {
+        texts.push(c.text);
+      }
+      // 念のため: まれに text がオブジェクトのことがある
+      else if (c?.type === "output_text" && c?.text?.value) {
+        texts.push(String(c.text.value));
+      }
+    }
+  }
+
+  return texts.join("\n").trim();
 }
 
 async function callOpenAI(pr, diff) {
@@ -76,7 +106,12 @@ Markdownで出力してください。
       Authorization: `Bearer ${openaiKey}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ model, input: prompt }),
+    body: JSON.stringify({
+      model,
+      input: prompt,
+      // お好み: ログ/保存を減らしたいなら
+      // store: false
+    }),
   });
 
   if (!res.ok) {
@@ -85,7 +120,16 @@ Markdownで出力してください。
   }
 
   const data = await res.json();
-  return (data.output_text || "").trim() || "（AIレビュー生成に失敗しました）";
+
+  const text = extractOutputText(data);
+
+  // デバッグ（必要なときだけON。普段はコメントアウト推奨）
+  if (!text) {
+    console.log("OpenAI raw response (no extracted text):");
+    console.log(JSON.stringify(data, null, 2));
+  }
+
+  return text;
 }
 
 async function postComment(body) {
@@ -99,17 +143,16 @@ async function postComment(body) {
 }
 
 (async () => {
-  // ===== デバッグ：このトークンが誰として認証されているか =====
-  const whoRes = await gh(`/user`);
-  const who = await whoRes.json();
-  console.log("Authenticated as:", who);
-  // =======================================================
-
   const pr = await getPR();
   const diff = await getDiff();
   const review = await callOpenAI(pr, diff);
-  await postComment(review);
 
+  const finalBody =
+    review && review.trim()
+      ? review.trim()
+      : "（AIレビュー生成に失敗しました：モデル出力テキストを抽出できませんでした。Actionsログの OpenAI raw response を確認してください）";
+
+  await postComment(finalBody);
   console.log("AI review posted.");
 })().catch((e) => {
   console.error(e);
