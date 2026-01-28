@@ -61,13 +61,13 @@ function process(input) { ... }    // 何を処理？
 - **Prettier**: コードフォーマット（インデント・改行・引用符など）を自動整形
 - **EditorConfig**: エディタレベルでの基本設定（文字コード・改行コード・インデント）
 
-### セットアップ
-プロジェクトのルートで以下を実行してください：
+### セットアップ（導入時）
+プロジェクトに ESLint/Prettier を導入する際は、以下のコマンドで依存関係をインストールしてください：
 ```bash
 npm install
 ```
 
-### 使い方
+### 使い方（導入後）
 ```bash
 # コードチェック
 npm run lint
@@ -80,3 +80,5 @@ npm run format
 ```
 
 エディタに ESLint/Prettier の拡張機能をインストールすると、保存時に自動フォーマットされます。
+
+> **Note**: ESLint/Prettier の具体的な設定ファイル（`.eslintrc`, `.prettierrc`）は別途追加してください。
