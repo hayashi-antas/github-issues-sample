@@ -5,7 +5,9 @@ const openaiKey = process.env.OPENAI_API_KEY;
 const model = process.env.OPENAI_MODEL || "gpt-4.1";
 
 if (!repoFull || !issueNumber || !ghToken || !openaiKey) {
-  console.error("Missing env vars. Required: REPO, ISSUE_NUMBER, GITHUB_TOKEN, OPENAI_API_KEY");
+  console.error(
+    "Missing env vars. Required: REPO, ISSUE_NUMBER, GITHUB_TOKEN, OPENAI_API_KEY"
+  );
   process.exit(1);
 }
 
@@ -37,12 +39,14 @@ async function getDiff() {
 }
 
 function trimDiff(text, maxChars = 120000) {
-  return text.length > maxChars ? text.slice(0, maxChars) + "\n\n[TRUNCATED]\n" : text;
+  return text.length > maxChars
+    ? text.slice(0, maxChars) + "\n\n[TRUNCATED]\n"
+    : text;
 }
 
 // Responses API の生JSONからテキストを抽出（output配列をなめる）
 function extractOutputText(data) {
-  // SDK/一部レスポンスで output_text がある場合は最優先
+  // ある場合は最優先（環境によって付く）
   if (typeof data?.output_text === "string" && data.output_text.trim()) {
     return data.output_text.trim();
   }
@@ -57,20 +61,28 @@ function extractOutputText(data) {
     if (!Array.isArray(content)) continue;
 
     for (const c of content) {
-      // ドキュメント上は output の中に text が入る  [oai_citation:1‡OpenAI Platform](https://platform.openai.com/docs/guides/text?utm_source=chatgpt.com)
       if (c?.type === "output_text" && typeof c?.text === "string") {
         texts.push(c.text);
       } else if (c?.type === "text" && typeof c?.text === "string") {
         texts.push(c.text);
-      }
-      // 念のため: まれに text がオブジェクトのことがある
-      else if (c?.type === "output_text" && c?.text?.value) {
+      } else if (c?.type === "output_text" && c?.text?.value) {
         texts.push(String(c.text.value));
       }
     }
   }
 
   return texts.join("\n").trim();
+}
+
+/**
+ * レビュー本文が「全体を ``` ``` で囲む」形で返ってきたら外側だけ剥がす。
+ * - ```markdown ... ``` など言語指定も対応
+ * - 内部のコードブロックはそのまま残る（外側だけ除去）
+ */
+function unwrapWholeFence(text) {
+  const t = (text || "").trim();
+  const m = t.match(/^```[a-zA-Z0-9_-]*\n([\s\S]*?)\n```$/);
+  return m ? m[1].trim() : t;
 }
 
 async function callOpenAI(pr, diff) {
@@ -97,7 +109,11 @@ ${trimDiff(diff)}
 - 不確かな点は推測と明記
 - 初心者にも学びがある書き方
 
-Markdownで出力してください。
+重要:
+- 回答全体を \`\`\` で囲まないでください。
+- コードブロックは必要な箇所だけに使い、本文は通常のMarkdownとして出力してください。
+
+出力はMarkdownでお願いします。
 `.trim();
 
   const res = await fetch("https://api.openai.com/v1/responses", {
@@ -109,8 +125,7 @@ Markdownで出力してください。
     body: JSON.stringify({
       model,
       input: prompt,
-      // お好み: ログ/保存を減らしたいなら
-      // store: false
+      // store: false, // 必要ならON
     }),
   });
 
@@ -120,16 +135,16 @@ Markdownで出力してください。
   }
 
   const data = await res.json();
-
   const text = extractOutputText(data);
 
-  // デバッグ（必要なときだけON。普段はコメントアウト推奨）
+  // 必要ならデバッグ（普段はOFF推奨）
   if (!text) {
     console.log("OpenAI raw response (no extracted text):");
     console.log(JSON.stringify(data, null, 2));
   }
 
-  return text;
+  // 全体フェンスを剥がして安定化
+  return unwrapWholeFence(text);
 }
 
 async function postComment(body) {
@@ -147,9 +162,11 @@ async function postComment(body) {
   const diff = await getDiff();
   const review = await callOpenAI(pr, diff);
 
+  const cleaned = (review || "").trim();
+
   const finalBody =
-    review && review.trim()
-      ? review.trim()
+    cleaned.length > 0
+      ? cleaned
       : "（AIレビュー生成に失敗しました：モデル出力テキストを抽出できませんでした。Actionsログの OpenAI raw response を確認してください）";
 
   await postComment(finalBody);
