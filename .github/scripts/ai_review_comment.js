@@ -137,7 +137,7 @@ async function postComment(body) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      body: `### 🤖 AI Review\n\n${body}\n\n---\n_Trigger: /ai-review_`,
+      body: `### 🤖 AI Review\n\n${body}\n\n---\n_Triggered by AI Review Action_`,
     }),
   });
 }
