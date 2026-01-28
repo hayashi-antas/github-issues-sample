@@ -1,0 +1,134 @@
+name: AI Review on /ai-review
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: read
+
+jobs:
+  ai-review:
+    # PRコメント & /ai-review のときだけ動かす
+    if: >
+      github.event.issue.pull_request &&
+      contains(github.event.comment.body, '/ai-review')
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Run AI review
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          MODEL: gpt-4.1
+        run: |
+          node - <<'NODE'
+          const repo = process.env.REPO;
+          const issueNumber = process.env.ISSUE_NUMBER;
+          const ghToken = process.env.GITHUB_TOKEN;
+          const openaiKey = process.env.OPENAI_API_KEY;
+          const model = process.env.MODEL;
+
+          const ghHeaders = {
+            Authorization: `Bearer ${ghToken}`,
+            Accept: "application/vnd.github+json"
+          };
+
+          async function gh(path, opts = {}) {
+            const res = await fetch(`https://api.github.com${path}`, {
+              ...opts,
+              headers: { ...ghHeaders, ...(opts.headers || {}) }
+            });
+            if (!res.ok) throw new Error(await res.text());
+            return res.json();
+          }
+
+          async function getPR() {
+            return gh(`/repos/${repo}/pulls/${issueNumber}`);
+          }
+
+          async function getDiff() {
+            const res = await fetch(
+              `https://api.github.com/repos/${repo}/pulls/${issueNumber}`,
+              {
+                headers: {
+                  Authorization: `Bearer ${ghToken}`,
+                  Accept: "application/vnd.github.v3.diff"
+                }
+              }
+            );
+            return res.text();
+          }
+
+          async function callOpenAI(pr, diff) {
+            const prompt = `
+あなたは熟練したソフトウェアエンジニアです。
+以下の Pull Request をレビューしてください。
+
+## PRタイトル
+${pr.title}
+
+## PR本文
+${pr.body || "(なし)"}
+
+## 変更差分
+${diff.slice(0, 120000)}
+
+観点:
+- バグや落とし穴
+- 保守性・可読性
+- セキュリティ上の注意
+- 将来困りそうな点
+
+トーン:
+- 丁寧
+- 断定しすぎない
+- 学習目的にもなるコメント
+
+Markdownで書いてください。
+            `.trim();
+
+            const res = await fetch("https://api.openai.com/v1/responses", {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${openaiKey}`,
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({
+                model,
+                input: prompt
+              })
+            });
+
+            const data = await res.json();
+            return data.output_text || "（レビュー生成に失敗しました）";
+          }
+
+          async function postComment(body) {
+            await fetch(
+              `https://api.github.com/repos/${repo}/issues/${issueNumber}/comments`,
+              {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${ghToken}`,
+                  "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                  body: `### 🤖 AI Review\n\n${body}`
+                })
+              }
+            );
+          }
+
+          (async () => {
+            const pr = await getPR();
+            const diff = await getDiff();
+            const review = await callOpenAI(pr, diff);
+            await postComment(review);
+          })();
+          NODE
