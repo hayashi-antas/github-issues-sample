@@ -10,6 +10,7 @@ React（フロントエンド）と Node.js（バックエンド）を使った�
 shopping-website/
 ├── frontend/          # React + TypeScript + Vite
 ├── backend/           # Node.js + Express + TypeScript
+├── shared/            # 共有型定義（DRY原則）
 ├── package.json       # ワークスペース設定
 └── README.md
 ```
@@ -119,11 +120,19 @@ src/
 src/
 ├── controllers/   # リクエストハンドラー
 ├── routes/        # APIルート定義
-├── types/         # TypeScript型定義
+├── types/         # TypeScript型定義（共有型を再エクスポート）
 ├── utils/         # ユーティリティ関数
 ├── middleware/    # カスタムミドルウェア
 └── index.ts       # サーバーエントリーポイント
 ```
+
+### 共有 (shared/)
+```
+types/
+└── index.ts       # 共通型定義（Product, User, CartItem, Order）
+```
+
+DRY原則に従い、フロントエンドとバックエンドで使用される型定義は `shared/types/` に集約されています。
 
 ## API エンドポイント
 
