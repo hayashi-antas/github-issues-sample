@@ -2,7 +2,7 @@ const repoFull = process.env.REPO; // owner/repo
 const issueNumber = Number(process.env.ISSUE_NUMBER);
 const ghToken = process.env.GITHUB_TOKEN;
 const openaiKey = process.env.OPENAI_API_KEY;
-const model = process.env.OPENAI_MODEL || "gpt-4.1";
+const model = process.env.OPENAI_MODEL;
 
 if (!repoFull || !issueNumber || !ghToken || !openaiKey) {
   console.error(
