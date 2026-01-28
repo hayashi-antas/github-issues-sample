@@ -6,11 +6,11 @@ on:
 
 permissions:
   contents: read
-  pull-requests: read
   issues: write
 
 jobs:
   debug-context:
+    if: ${{ github.event.issue.pull_request != null && contains(github.event.comment.body, '/ai-review') }}
     runs-on: ubuntu-latest
     steps:
       - name: Print event debug info
@@ -23,10 +23,16 @@ jobs:
 
   ai-review:
     needs: debug-context
-    if: ${{ github.event.issue.pull_request != null && contains(github.event.comment.body, '/ai-review') }}
+    if: ${{ github.event.issue.pull_request != null && contains(github.event.comment.body, '/ai-review') && (github.event.comment.author_association == 'OWNER' || github.event.comment.author_association == 'MEMBER' || github.event.comment.author_association == 'COLLABORATOR' || github.event.comment.author_association == 'CONTRIBUTOR') }}
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
+
+      - name: Ensure reviewer script exists
+        run: |
+          test -f .github/scripts/ai_review_comment.js
+          echo "Found .github/scripts/ai_review_comment.js"
 
       - name: Run reviewer script
         env:
