@@ -11,15 +11,7 @@ permissions:
 
 jobs:
   ai-review:
-    if: ${{ 
-      github.event.issue.pull_request &&
-      contains(github.event.comment.body, '/ai-review') &&
-      (
-        github.event.comment.author_association == 'OWNER' ||
-        github.event.comment.author_association == 'MEMBER' ||
-        github.event.comment.author_association == 'COLLABORATOR'
-      )
-    }}
+    if: ${{ github.event.issue.pull_request && contains(github.event.comment.body, '/ai-review') && (github.event.comment.author_association == 'OWNER' || github.event.comment.author_association == 'MEMBER' || github.event.comment.author_association == 'COLLABORATOR') }}
     runs-on: ubuntu-latest
 
     steps:
@@ -43,14 +35,12 @@ jobs:
             const repo = context.repo.repo;
             const issue_number = context.payload.issue.number; // PR番号と同じ
 
-            // PR本体を取得
             const pr = await github.rest.pulls.get({
               owner,
               repo,
               pull_number: issue_number
             });
 
-            // diff を取得（GitHub APIに Accept: diff を指定）
             const diffRes = await github.request("GET /repos/{owner}/{repo}/pulls/{pull_number}", {
               owner,
               repo,
