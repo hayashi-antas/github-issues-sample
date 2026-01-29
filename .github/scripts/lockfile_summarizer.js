@@ -59,15 +59,33 @@ function summarizeLockfileDiff(diffContent) {
 }
 
 function extractPackageName(line, outSet) {
-  // package-lock: "node_modules/foo" や "node_modules/@scope/bar"
-  const m = line.match(/node_modules\/(@[^/]+\/)?([^"'\s/]+)/);
-  if (m) {
-    outSet.add(m[1] ? `${m[1]}${m[2]}` : m[2]);
+  // 1. package-lock.json: "node_modules/foo" や "node_modules/@scope/bar"
+  const nodeModulesMatch = line.match(/node_modules\/(@[^/]+\/[^"'\s/]+|[^"'\s/]+)/);
+  if (nodeModulesMatch) {
+    outSet.add(nodeModulesMatch[1]);
     return;
   }
-  // yarn.lock など: "package@version"
-  const m2 = line.match(/"([^"@]+)@[^"]*"/);
-  if (m2) outSet.add(m2[1]);
+
+  // 2. package-lock.json: JSON キー形式 "foo": { や "@scope/bar": {
+  const jsonKeyMatch = line.match(/^\s*[+-]\s*"(@[^/]+\/[^"]+|[^"@]+)":\s*\{/);
+  if (jsonKeyMatch) {
+    outSet.add(jsonKeyMatch[1]);
+    return;
+  }
+
+  // 3. yarn.lock: 引用符なし記法 foo@^1.0.0: や @scope/bar@^2.0.0:
+  const yarnUnquotedMatch = line.match(/^\s*[+-]\s*(@[^/]+\/[^@\s]+|[^@\s]+)@[^:]+:/);
+  if (yarnUnquotedMatch) {
+    outSet.add(yarnUnquotedMatch[1]);
+    return;
+  }
+
+  // 4. yarn.lock 等: 引用符付き "package@version"
+  const quotedMatch = line.match(/"(@[^/]+\/[^"@]+|[^"@]+)@[^"]*"/);
+  if (quotedMatch) {
+    outSet.add(quotedMatch[1]);
+    return;
+  }
 }
 
 module.exports = {
