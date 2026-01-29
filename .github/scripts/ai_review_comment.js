@@ -1,3 +1,5 @@
+const { cleanseDiff, formatCleansingSummaryForComment } = require("./diff_cleanser.js");
+
 const repoFull = process.env.REPO; // owner/repo
 const issueNumber = Number(process.env.ISSUE_NUMBER);
 const ghToken = process.env.GITHUB_TOKEN;
@@ -159,15 +161,23 @@ async function postComment(body) {
 
 (async () => {
   const pr = await getPR();
-  const diff = await getDiff();
-  const review = await callOpenAI(pr, diff);
+  const rawDiff = await getDiff();
+
+  const { cleansedDiff, summary: cleansingSummary } = cleanseDiff(rawDiff, {
+    repoRoot: process.cwd(),
+  });
+
+  const review = await callOpenAI(pr, cleansedDiff);
 
   const cleaned = (review || "").trim();
 
-  const finalBody =
+  let finalBody =
     cleaned.length > 0
       ? cleaned
       : "（AIレビュー生成に失敗しました：モデル出力テキストを抽出できませんでした。Actionsログの OpenAI raw response を確認してください）";
+
+  const cleansingSection = formatCleansingSummaryForComment(cleansingSummary);
+  finalBody = `${finalBody}\n\n---\n\n${cleansingSection}`;
 
   await postComment(finalBody);
   console.log("AI review posted.");
