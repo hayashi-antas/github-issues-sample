@@ -11,7 +11,7 @@ function loadIgnorePatterns(rootDir) {
   // 組み込み: 常に無視するディレクトリ・ファイル（AIレビューに不要）
   patterns.push({ raw: "node_modules/", type: "dir" });
   patterns.push({ raw: "vendor/", type: "dir" });
-  patterns.push({ raw: "*.lock", type: "glob" });
+  // *.lock は除外: lockfile は diff_cleanser.js で専用処理
 
   if (!fs.existsSync(gitignorePath)) {
     return patterns;

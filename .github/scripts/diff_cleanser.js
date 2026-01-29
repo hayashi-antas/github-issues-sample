@@ -48,11 +48,7 @@ function cleanseDiff(rawDiff, opts = {}) {
   for (const { path: filePath, rawBlock } of parts) {
     const normalizedPath = filePath.replace(/\\/g, "/");
 
-    if (isIgnored(normalizedPath, patterns)) {
-      excluded.push({ path: normalizedPath, reason: ".gitignore or built-in rule" });
-      continue;
-    }
-
+    // lockfile 判定を最優先: .gitignore とは独立した特別扱い
     if (isLockfile(normalizedPath)) {
       const summary = summarizeLockfileDiff(rawBlock);
       lockfileSummaries.push({ path: normalizedPath, summary });
@@ -61,6 +57,11 @@ function cleanseDiff(rawDiff, opts = {}) {
         path: normalizedPath,
         summary,
       });
+      continue;
+    }
+
+    if (isIgnored(normalizedPath, patterns)) {
+      excluded.push({ path: normalizedPath, reason: ".gitignore or built-in rule" });
       continue;
     }
 
