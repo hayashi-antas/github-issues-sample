@@ -10,16 +10,25 @@ const { isLockfile, summarizeLockfileDiff } = require("./lockfile_summarizer.js"
 function splitDiffByFile(rawDiff) {
   const blocks = rawDiff.split(/\n(?=diff --git )/);
   const result = [];
+  let preamble = ""; // diff --git より前のヘッダ（あれば保持）
 
   for (const block of blocks) {
     const trimmed = block.trim();
-    if (!trimmed.startsWith("diff --git ")) continue;
+    if (!trimmed.startsWith("diff --git ")) {
+      // 最初のブロックが diff --git で始まらない場合はプリアンブルとして保持
+      if (result.length === 0) {
+        preamble = block;
+      }
+      continue;
+    }
 
     const m = trimmed.match(/^diff --git a\/(.+?) b\/(.+?)(?:\n|$)/);
     const filePath = m ? (m[2] === "/dev/null" ? m[1] : m[2]) : null;
     if (!filePath) continue;
 
-    result.push({ path: filePath, rawBlock: block });
+    // 最初のファイルにのみプリアンブルを結合
+    const rawBlock = result.length === 0 && preamble ? preamble + "\n" + block : block;
+    result.push({ path: filePath, rawBlock });
   }
 
   return result;

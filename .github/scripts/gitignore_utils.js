@@ -42,7 +42,8 @@ function matchesPattern(filePath, { raw, type }) {
       const re = toSimpleGlobRe(dir);
       return segments.some((s) => re.test(s));
     }
-    return segments.some((s) => s === dir || s.startsWith(dir + "."));
+    // パスセグメント完全一致のみ（`src` が `srcNot` にマッチしないよう境界を厳密化）
+    return segments.includes(dir);
   }
 
   if (type === "glob") {
@@ -50,8 +51,16 @@ function matchesPattern(filePath, { raw, type }) {
     return re.test(normalized) || segments.some((s) => re.test(s));
   }
 
-  // path: 完全一致またはプレフィックス一致
-  return normalized === raw || normalized.startsWith(raw + "/");
+  // path: 完全一致またはディレクトリとしてのプレフィックス一致
+  // （`build` が `build-staging` にマッチしないよう、セグメント境界を考慮）
+  if (normalized === raw) return true;
+  if (normalized.startsWith(raw + "/")) return true;
+  // `build/` 形式でパターンが終わっていない場合も、ディレクトリ内を考慮
+  if (raw.endsWith("/")) {
+    const prefix = raw.slice(0, -1);
+    return normalized === prefix || normalized.startsWith(prefix + "/");
+  }
+  return false;
 }
 
 function toSimpleGlobRe(pattern) {
