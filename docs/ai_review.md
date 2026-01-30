@@ -227,5 +227,7 @@ CodeRabbit は、
 
 といった **使い分け・併用も現実的**だと考えています。
 
+[![Image from Gyazo](https://i.gyazo.com/c8d0a839d0e3844b805e3084edeaddcc.png)](https://gyazo.com/c8d0a839d0e3844b805e3084edeaddcc)
+
 ### 参考リンク
 - [CodeRabbit](https://www.coderabbit.ai/ja)
