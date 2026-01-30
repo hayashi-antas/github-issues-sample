@@ -63,7 +63,7 @@ GitHub Projects を用いたタスク管理では、
 
 ---
 
-## 補足：GitHub Copilot を用いた Issue 作成との位置づけ
+## 補足1：GitHub Copilot を用いた Issue 作成との位置づけ
 
 現在は GitHub Copilot を利用して、自然言語の指示から Issue を作成することも可能です。  
 例えば、GitHub 上で Copilot に対して「このプロジェクトのタスクを Issue として作成してほしい」といった指示を行うことで、Issue のタイトルや本文を自動生成できます。
@@ -89,5 +89,53 @@ GitHub Copilot による Issue 作成は、
 - [GitHub Copilot 公式ドキュメント（Issue 作成・活用方法）  ](https://docs.github.com/ja/copilot/how-tos/use-copilot-for-common-tasks/use-copilot-to-create-or-update-issues)
 
 ---
+
+## 補足2：AIにToDoを作らせて、そのままIssue / Projectに落とす運用
+
+AIに実装を依頼する前段として、まず「この変更を完了するためのToDo（手順・タスク）」を生成させ、  
+そのToDoを `gh` CLI を用いて Issue 化し、GitHub Projects に自動登録する運用も想定しています。
+
+### 想定フロー
+1. AIに対して「この機能を実装するためのToDoリスト（Issue粒度）」を生成させる  
+2. 必要に応じて人間が粒度・表現を軽く調整する  
+3. ToDoリストを `issues` 配列（または CSV / TSV）として定義する  
+4. 本スクリプトを実行し、Issue 作成・Project 登録・フィールド設定を一括で行う  
+5. Project 上の Issue を上から順に実行し、進捗を管理する  
+
+### この運用の利点
+- AIによる **設計・タスク分解（計画）** と、GitHub Projects による **実行管理** を分断せずに接続できる
+- Issue / Project の初期状態（Estimate / Priority）を揃えたまま運用を開始できる
+- AIが生成したタスク案を、**コード（配列 / CSV）として固定化**することで、再現性のあるプロジェクト初期化が可能になる
+- 同じ構成のタスクセットを、別リポジトリや別プロジェクトでも再利用できる
+
+このスクリプトは、単なる Issue 作成の自動化ではなく、  
+**AIが考え、人間が確認し、GitHubが実行を管理する** という役割分担を前提とした運用フローの土台として位置づけています。
+
+```mermaid
+
+flowchart TD
+  subgraph AI[AI]
+    A1[実装ToDoを生成]
+  end
+
+  subgraph Human[人間]
+    H1[粒度・内容を調整]
+    H2[タスク定義を確定]
+  end
+
+  subgraph Repo[リポジトリ]
+    R1[issues配列 / CSVに保存]
+  end
+
+  subgraph GitHub[GitHub]
+    G1[Issue一括作成]
+    G2[Projectに追加]
+    G3[Estimate / Priority設定]
+    G4[順に実行・管理]
+  end
+
+  A1 --> H1 --> H2 --> R1
+  R1 --> G1 --> G2 --> G3 --> G4
+```
 
 
