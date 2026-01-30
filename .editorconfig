@@ -1,0 +1,23 @@
+# EditorConfig is awesome: https://EditorConfig.org
+
+# トップレベルの設定ファイル
+root = true
+
+# すべてのファイルに適用
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# インデント設定
+indent_style = space
+indent_size = 2
+
+# Markdown ファイルでは末尾スペースを許可（行末の2スペースで改行）
+[*.md]
+trim_trailing_whitespace = false
+
+# Makefile はタブインデント
+[Makefile]
+indent_style = tab
