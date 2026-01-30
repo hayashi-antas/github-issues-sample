@@ -85,7 +85,7 @@ github.event.comment.user.type == 'User'
 ---
 
 ### ④ レビュースクリプトを追加
-`.github/scripts/ai_review_comment.js`
+[.github/scripts/ai_review_comment.js](../.github/scripts/ai_review_comment.js)
 
 - PR 本文・diff を取得
 - OpenAI Responses API でレビュー生成
