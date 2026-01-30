@@ -16,7 +16,8 @@ Pull Request に
 - YAML 地獄を避けた **JS 分離設計**
 - 無限ループ・Markdown崩壊対策済み
 
----
+  
+[![Image from Gyazo](https://i.gyazo.com/73266e29c6e31db8612df6082a9bf4d1.png)](https://gyazo.com/73266e29c6e31db8612df6082a9bf4d1)
 
 ## 全体構成
 
