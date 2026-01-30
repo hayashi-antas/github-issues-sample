@@ -5,7 +5,7 @@
 
 Issue 作成、Project 登録、フィールド入力を一連の処理として自動化することで、プロジェクト立ち上げ時の初期作業を効率化することを目的としています。
 
-## 自動化スクリプト
+## スクリプト
 - [Issue一括生成スクリプト](../scripts/create_issues_and_project_items.sh)
 ---
 
