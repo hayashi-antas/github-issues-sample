@@ -1,29 +1,92 @@
 # github-issues-sample
 
-## AI Input Cleansing Design Principles
+このプロジェクトは、**GitHub ActionsとAIを活用した開発プロセスの自動化**を実現するサンプルプロジェクトです。
 
-このプロジェクトでは、PRのdiffをAIに渡す前に「入力コンテキスト制御」を行っています。  
-目的はデータ削除ではなく、**AIが読むべき情報の最適化**です。
+## 📚 主な機能
 
-### 設計の核となる考え方
+### 1. 🤖 AI PRレビュー
+Pull Requestに `/ai-review` とコメントすると、OpenAI APIを使った自動レビューが投稿されます。
+- GitHub Actionsとの統合
+- セキュリティを考慮した設計
+- AI Input Cleansingによる最適化
 
-- **リポジトリ自体は変更しない**: `.gitignore`はビルド成果物やログを除外する責務。AIレビューのために既存の`.gitignore`を汚染しない。
-- **lockfileは要約して渡す**: `package-lock.json`等は削除せず、依存追加・削除のサマリのみをAIに渡す。全行をAIに読ませてもレビュー品質は向上しない。
-- **Validationではなく、Cleansing/Suggestion**: エラーで止めるのではなく、AIが読みやすい形に整形し、除外内容を可視化する。
+**詳細:** [docs/ai_review.md](docs/ai_review.md)
 
-### .gitignoreとの責務の違い
+### 2. 📋 Issue一括管理
+GitHub CLIを使って、複数のIssueを一括作成し、GitHub Projectsに自動登録します。
+- Estimate / Priority の自動設定
+- 再現性のあるタスク初期化
+- プロジェクト立ち上げの効率化
 
-- `.gitignore`: リポジトリの管理対象外を定義（Git本来の責務）
-- Cleansing: AIレビューに不要なファイルを**入力から除外**する（AI入力の責務）
+**詳細:** [docs/gh-project-issue-batch.md](docs/gh-project-issue-batch.md)
 
-lockfileやテストスナップショットは「Gitで管理すべき」だが「AIレビューで全文読む必要がない」ファイルの典型例です。  
-この2つの責務を分離することで、リポジトリ設定に影響を与えずAI入力を制御できます。
-### 実装の制限と設計方針
+### 3. 🧹 AI Input Cleansing
+AIレビューの品質を向上させるため、入力を最適化します。
+- lockfileの要約
+- テストスナップショットの除外
+- トークン消費の削減
 
-現在の実装は**完全な仕様準拠ではなく、実用性重視の簡易実装**です：
+**詳細:** [docs/ai_input_cleansing.md](docs/ai_input_cleansing.md)
 
-- **.gitignoreマッチング**: 簡易的な正規表現マッチのみ対応。複雑な否定パターン（`!`）や一部の高度な記法は非対応。
-- **lockfile要約**: npm/yarnの代表的な形式のみ対応。すべてのパッケージマネージャの全記法を網羅していない。
-- **安全側の設計**: 誤検知でAI入力から除外するリスクを避けるため、**判定が曖昧な場合はAIに渡す**方向に倒している。
+## 🗂️ プロジェクト構成
 
-この割り切りにより、軽量で保守しやすい実装を保ちつつ、AIレビューに必要な情報を確実に届けることを優先しています。
+```
+github-issues-sample/
+├── README.md                          # 本ファイル
+├── docs/                              # ドキュメント
+│   ├── ai_input_cleansing.md         # AI入力最適化の設計原則
+│   ├── ai_review.md                  # AIレビュー実装ガイド
+│   ├── gh-project-issue-batch.md     # Issue一括管理の解説
+│   └── project_structure.md          # プロジェクト構成の詳細
+└── scripts/
+    └── create_issues_and_project_items.sh  # Issue一括作成スクリプト
+```
+
+**詳細な構成説明:** [docs/project_structure.md](docs/project_structure.md)
+
+## 🚀 クイックスタート
+
+### AIレビューを試す
+1. OpenAI API Keyを取得し、GitHub Secretsに設定
+2. Pull Requestを作成
+3. コメントに `/ai-review` と入力
+
+### Issue一括作成を試す
+```bash
+# スクリプトを編集
+vim scripts/create_issues_and_project_items.sh
+
+# 実行
+chmod +x scripts/create_issues_and_project_items.sh
+./scripts/create_issues_and_project_items.sh
+```
+
+## 📖 ドキュメント
+
+| ドキュメント | 内容 |
+|------------|------|
+| [AI Input Cleansing](docs/ai_input_cleansing.md) | AI入力最適化の設計思想と実装詳細 |
+| [AI Review](docs/ai_review.md) | AIレビュー機能の実装ガイド |
+| [Issue Batch](docs/gh-project-issue-batch.md) | Issue一括管理の使い方 |
+| [Project Structure](docs/project_structure.md) | プロジェクト構成の詳細説明 |
+
+## 💡 想定利用シーン
+
+- チーム開発におけるコードレビューの効率化
+- プロジェクト立ち上げ時のタスク管理自動化
+- 研修や教育目的でのGitHub Actions実装例の学習
+
+## 🛠️ 使用技術
+
+- GitHub Actions
+- GitHub CLI
+- OpenAI API
+- Node.js / Bash
+
+## 📝 ライセンス
+
+MIT License
+
+## 🤝 コントリビューション
+
+Issue、Pull Request を歓迎します！
