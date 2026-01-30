@@ -79,7 +79,7 @@ github.event.comment.user.type == 'User'
 ---
 
 ### ③ workflow を追加
-`.github/workflows/ai_review_on_comment.yml`
+[.github/workflows/ai_review_on_comment.yml](~/.github/workflows/ai_review_on_comment.yml)
 
 ```yaml
 name: AI Review on /ai-review
