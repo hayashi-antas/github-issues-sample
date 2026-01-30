@@ -61,4 +61,33 @@ GitHub Projects を用いたタスク管理では、
 - Issue 定義を CSV / TSV ファイルから読み込む形式への拡張（区切り文字問題の回避、表形式管理への対応）
 
 
+---
+
+## 補足：GitHub Copilot を用いた Issue 作成との位置づけ
+
+現在は GitHub Copilot を利用して、自然言語の指示から Issue を作成することも可能です。  
+例えば、GitHub 上で Copilot に対して「このプロジェクトのタスクを Issue として作成してほしい」といった指示を行うことで、Issue のタイトルや本文を自動生成できます。
+
+GitHub Copilot による Issue 作成は、
+
+- Issue 内容のたたき台を素早く作れる
+- 人間が考えた要件を自然言語でそのまま渡せる
+
+といった点で非常に有効です。
+
+一方で、本スクリプトは以下の点に主眼を置いています。
+
+- 複数 Issue を **再現性のある形で一括生成**できる
+- Issue 作成後の **Project 追加・フィールド設定（Estimate / Priority）までを自動化**できる
+- タスク定義をコードとして管理でき、後から同じ構成を再実行できる
+
+そのため、  
+**Copilot による Issue 内容生成**と  
+**本スクリプトによる Project 運用の自動化**は、競合するものではなく、用途に応じて使い分け・併用できるものと考えています。
+
+### 参考ドキュメント
+- [GitHub Copilot 公式ドキュメント（Issue 作成・活用方法）  ](https://docs.github.com/ja/copilot/how-tos/use-copilot-for-common-tasks/use-copilot-to-create-or-update-issues)
+
+---
+
 
