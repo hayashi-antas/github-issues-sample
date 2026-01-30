@@ -81,34 +81,6 @@ github.event.comment.user.type == 'User'
 ### ③ workflow を追加
 [.github/workflows/ai_review_on_comment.yml](../.github/workflows/ai_review_on_comment.yml)
 
-```yaml
-name: AI Review on /ai-review
-
-on:
-  issue_comment:
-    types: [created]
-
-permissions:
-  contents: read
-  issues: write
-
-jobs:
-  ai-review:
-    if: ${{ github.event.issue.pull_request != null && startsWith(github.event.comment.body, '/ai-review') && github.event.comment.user.type == 'User' }}
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Run AI reviewer
-        env:
-          GITHUB_TOKEN: ${{ secrets.AI_REVIEW_PAT }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          OPENAI_MODEL: gpt-4.1
-          REPO: ${{ github.repository }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
-        run: node .github/scripts/ai_review_comment.js
-```
 
 ---
 
