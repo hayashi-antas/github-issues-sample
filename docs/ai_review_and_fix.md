@@ -9,7 +9,7 @@ graph LR
     
     AR --> Review{指摘あり?}
 
-    Review -- はい --> Agent[Agent 自動修正]
+    Review -- Yes --> Agent[Agent 自動修正]
     Agent --> Commit[修正コミット]
     Commit --> CI2[CI再実行]
     
@@ -26,4 +26,10 @@ graph LR
     style Review fill:#fff4dd,stroke:#d4a017
     style Merged fill:#00ff00,stroke:#333
 
+
 ```
+
+
+> [!NOTE]
+> 出典: 『Software Design 2025年12月号』p.130 木下雄一郎 著 「AI時代のコードレビュー」掲載の図を参考に作成。
+
